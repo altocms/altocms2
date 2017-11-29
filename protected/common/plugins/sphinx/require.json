@@ -1,0 +1,5 @@
+{
+    "require" : {
+        "nilportugues/sphinx-search": "^1.0"
+    }
+}

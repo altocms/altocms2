@@ -1,0 +1,16 @@
+{
+  "require" : {
+    "php" : "^5.6 || ^7.0",
+    "ext-mbstring": "*",
+    "smarty/smarty": "~3.1",
+    "phpmailer/phpmailer": "~6.0",
+    "qevix/qevix": "~0.4",
+    "tedivm/jshrink": "~1.2",
+    "cerdic/css-tidy": "~1.5",
+    "xxtea/xxtea": "dev-master",
+    "avadim/chrono": "~0.9",
+    "hassankhan/config": "^0.10",
+    "aura/router": "^3.0",
+    "zendframework/zend-diactoros": "^1.3"
+  }
+}

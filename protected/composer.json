@@ -1,0 +1,22 @@
+{
+    "require": {
+        "wikimedia/composer-merge-plugin": "^1.4"
+    },
+    "extra": {
+        "merge-plugin": {
+            "include": [
+                "app/composer.app.json",
+                "app/plugins/composer.plugins.json"
+            ],
+            "require": [
+                "engine/composer.engine.json",
+                "common/composer.common.json"
+            ],
+            "recurse": true,
+            "replace": false,
+            "merge-dev": true,
+            "merge-extra": false,
+            "merge-extra-deep": false
+        }
+    }
+}

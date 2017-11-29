@@ -1,0 +1,81 @@
+<?php
+/*-------------------------------------------------------
+ * @Project: Alto CMS v.2.x.x
+ * @Project URI: http://altocms.com
+ * @Description: Advanced Community Engine
+ * @Copyright: Alto CMS Team
+ * @License: GNU GPL v2 & MIT
+ *-------------------------------------------------------
+ */
+
+defined('DEBUG') || define('DEBUG', 0);
+
+if (!defined('LOCALHOST')) {
+    if (
+        ($_SERVER['SERVER_ADDR'] === '127.0.0.1' AND $_SERVER['REMOTE_ADDR'] === '127.0.0.1')
+        OR (substr($_SERVER['SERVER_NAME'], -4) === '.loc')
+        OR (substr($_SERVER['SERVER_NAME'], -6) === '.local')
+        OR (substr($_SERVER['SERVER_NAME'], -9) === 'localhost')
+    ) {
+        define('LOCALHOST', 1);
+    } else {
+        define('LOCALHOST', 0);
+    }
+}
+
+/*
+ * Config for your site
+ * You need to rename this file to "config.php" and fill by your settings
+ */
+
+/* ============================================================================
+ * SETTINGS OF ROOT PATHS FOR YOUR SITE
+ * ----------------------------------------------------------------------------
+ *
+ * If you need to install Alto CMS in a subdirectory (not in the root of the domain, e.g. in site.com/subdir),
+ * you should do so:
+ *
+ * $config['path']['root']['url'] = 'http://site.com/subdir/';
+ * $config['path']['root']['dir'] = '/var/www/user/data/www/site.com/subdir/';
+ * $config['path']['runtime']['url'] = '/subdir/_run/';
+ * $config['path']['runtime']['dir'] = '/var/www/user/data/www/site.com/subdir/_run/';
+ *
+ * And maybe you should increase value of $config['path']['offset_request_url'] by the number of subdirectories,
+ * e.g. for site.ru/subdir/:
+ *
+ * $config['path']['offset_request_url']   = 1;
+ */
+$config['path']['root']['url'] = F::UrlBase() . '/';
+$config['path']['root']['dir'] = ALTO_DIR_ROOT . '/';
+
+$config['path']['offset_request_url']   = 0;
+
+$config['path']['runtime']['url'] = '/_run/';
+$config['path']['runtime']['dir'] = ALTO_DIR_ROOT . '/_run/';
+
+/* ============================================================================
+ * SETTINGS FOR CONNECTION TO DATABASE
+ * ----------------------------------------------------------------------------
+ */
+$config['db']['params']['host'] = 'localhost';
+$config['db']['params']['port'] = '3306';
+$config['db']['params']['user'] = 'root';
+$config['db']['params']['pass'] = '';
+$config['db']['params']['type']   = 'mysqli';
+$config['db']['params']['dbname'] = 'alto';
+$config['db']['params']['charset'] = 'utf8';
+
+$config['db']['table']['prefix'] = 'prefix_';
+$config['db']['tables']['engine'] = 'InnoDB';
+
+/* ============================================================================
+ * "SALT" TO ENHANCE THE SECURITY OF HASHABLE DATA
+ * ----------------------------------------------------------------------------
+ */
+$config['security']['salt_sess']  = '123456789012345678901234567890';
+$config['security']['salt_pass']  = 'qwertyuiopqwertyuiopqwertyuiop';
+$config['security']['salt_auth']  = '1234567890qwertyuiopasdfghjkl0';
+
+return $config;
+
+// EOF

@@ -1,0 +1,36 @@
+{
+    "name":"nilportugues/sphinx-search",
+    "description":"Fully unit tested SphinxClient (SphinxAPI) for PHP5.3 and above to be used with SphinxSearch",
+    "type":"library",
+    "keywords":[ "search", "sphinx", "sphinxapi", "sphinx search", "search engine" ],
+    "homepage":"https://github.com/nilopc/NilPortugues_PHP_Sphinx",
+    "license":"MIT",
+    "authors":[
+        {
+            "name":"Nil Portugués Calderó",
+            "email":"contact@nilportugues.com",
+            "homepage":"http://nilportugues.com",
+            "role":"Lead Developer"
+        },
+        {
+            "name":"Andrew Aksyonoff",
+            "homepage": "http://sphinxsearch.com",
+            "role":"Original Author"
+        }
+    ],
+    "require":{
+        "php":">=5.3.0"
+    },
+    "require-dev":{
+        "phpunit/phpunit":"3.7.*",
+	"fabpot/php-cs-fixer": "1.*"
+    },
+    "config":{
+        "bin-dir":"bin/"
+    },
+    "autoload":{
+        "psr-0":{
+            "NilPortugues":"src/"
+        }
+    }
+}

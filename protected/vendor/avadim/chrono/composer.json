@@ -1,0 +1,20 @@
+{
+    "name": "avadim/chrono",
+    "description": "Extends the features of PHP DateTime classes",
+    "minimum-stability": "stable",
+    "keywords": ["date","time","datetime","timezone"],
+    "homepage": "https://github.com/aVadim483/Chrono",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Vadim Shemarov aka aVadim",
+            "email": "vshemarov@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.6"
+    },
+    "autoload": {
+        "psr-4": {"avadim\\Chrono\\": "src/"}
+    }
+}

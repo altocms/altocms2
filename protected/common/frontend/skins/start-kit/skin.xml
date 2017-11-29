@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<skin compatible="alto-1.3">
+    <name>
+        <lang name="default">Start Kit</lang>
+    </name>
+    <author>
+        <lang name="default">Alto CMS Team</lang>
+    </author>
+    <homepage>https://altocms.com</homepage>
+    <requires>
+        <alto>
+            <version>1.3.0-dev</version>
+        </alto>
+        <system>
+            <php>5.4.0</php>
+        </system>
+    </requires>
+    <description>
+        <lang name="default">Skin for Alto CMS based on Bootstrap 3.0</lang>
+    </description>
+    <info type="site">
+        <screenshots>
+            <screenshot preview="yes" file="screenshot.jpg" />
+        </screenshots>
+        <themes>
+            <theme code="light" name="Light" />
+            <theme code="green" name="Green" />
+            <theme code="red" name="Red" />
+        </themes>
+        <wgroups>
+            <wgroup name="right" />
+        </wgroups>
+    </info>
+</skin>

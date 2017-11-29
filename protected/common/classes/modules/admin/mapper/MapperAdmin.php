@@ -1,0 +1,685 @@
+<?php
+/*---------------------------------------------------------------------------
+ * @Project: Alto CMS v.2.x.x
+ * @Project URI: https://altocms.com
+ * @Description: Advanced Community Engine
+ * @Copyright: Alto CMS Team
+ * @License: GNU GPL v2 & MIT
+ *----------------------------------------------------------------------------
+ */
+
+/**
+ * Маппер для работы с БД админпанели
+ *
+ * @package modules.admin
+ * @since 1.0
+ */
+class ModuleAdmin_MapperAdmin extends Mapper
+{
+    /**
+     * Returns site statistics
+     *
+     * @return array
+     */
+    public function getSiteStat()
+    {
+        $aResult = [];
+        $sql = "SELECT Count(*) FROM ?_user WHERE user_date_activate IS NOT NULL";
+        $aResult['users'] = $this->oDb->selectCell($sql);
+        $sql = "SELECT Count(*) FROM ?_blog";
+        $aResult['blogs'] = $this->oDb->selectCell($sql);
+        $sql = "SELECT Count(*) FROM ?_topic";
+        $aResult['topics'] = $this->oDb->selectCell($sql);
+        $sql = "SELECT Count(*) FROM ?_comment WHERE target_type='topic'";
+        $aResult['comments'] = $this->oDb->selectCell($sql);
+        return $aResult;
+    }
+
+    /**
+     * Ban users by id
+     *
+     * @param array  $aUsersId
+     * @param string $sDate
+     * @param bool   $bUnlim
+     * @param string $sComment
+     *
+     * @return bool
+     */
+    public function banUsers($aUsersId, $sDate, $bUnlim, $sComment = null)
+    {
+        $this->unbanUsers($aUsersId);
+        foreach($aUsersId as $nUserId) {
+            $sql = "
+                INSERT INTO ?_adminban
+                  (user_id, bandate, banline, banunlim, bancomment, banactive)
+                  VALUES (?d, ?, ?, ?, ?, 1)
+                ";
+            if ($this->oDb->query($sql, $nUserId, \F::Now(), $sDate, $bUnlim ? 1 : 0, $sComment) === false)
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * Unban users by id
+     *
+     * @param array $aUsersId
+     *
+     * @return bool
+     */
+    public function unbanUsers($aUsersId)
+    {
+        $sql = "UPDATE ?_adminban SET banactive=0, banunlim=0 WHERE user_id IN (?a)";
+
+        return $this->oDb->query($sql, $aUsersId) !== false;
+    }
+
+    /**
+     * Return list of banned users
+     *
+     * @param int $iCount
+     * @param int $iCurrPage
+     * @param int $iPerPage
+     *
+     * @return array
+     */
+    public function getBannedUsersId(&$iCount, $iCurrPage, $iPerPage)
+    {
+        $sql = "
+            SELECT DISTINCT ab.user_id
+            FROM
+                ?_adminban AS ab
+            WHERE (ab.user_id>0) AND (ab.banunlim>0 OR (ab.banline>? AND ab.banactive=1))
+            ORDER BY ab.bandate DESC
+            LIMIT ?d, ?d
+            ";
+        $aRows = $this->oDb->selectPage($iCount, $sql, \F::Now(), ($iCurrPage - 1) * $iPerPage, $iPerPage);
+        $aResult = [];
+        if ($aRows)
+            foreach($aRows as $aRow) {
+                $aResult[] = $aRow['user_id'];
+            }
+        return $aResult;
+    }
+
+    /**
+     * Returns list of banned IPs
+     *
+     * @param int $iCount
+     * @param int $iCurrPage
+     * @param int $iPerPage
+     *
+     * @return array
+     */
+    public function getIpsBanList(&$iCount, $iCurrPage, $iPerPage)
+    {
+        $aReturn = [];
+        $sql =
+            "SELECT
+                ips.id,
+                CASE WHEN ips.ip1<>0 THEN INET_NTOA(ips.ip1) ELSE '' END AS `ip1`,
+                CASE WHEN ips.ip2<>0 THEN INET_NTOA(ips.ip2) ELSE '' END AS `ip2`,
+                ips.bandate, ips.banline, ips.banunlim, ips.bancomment
+            FROM
+                ?_adminips AS ips
+            WHERE banactive=1
+            ORDER BY ips.id
+            LIMIT ?d, ?d
+        ";
+        $aRows = $this->oDb->selectPage($iCount, $sql, ($iCurrPage - 1) * $iPerPage, $iPerPage);
+
+        if ($aRows) {
+            $aReturn = $aRows;
+        }
+        return $aReturn;
+    }
+
+    /**
+     * Ban range of IPs
+     *
+     * @param string $sIp1
+     * @param string $sIp2
+     * @param string $sDate
+     * @param bool   $bUnlim
+     * @param string $sComment
+     *
+     * @return bool
+     */
+    public function setBanIp($sIp1, $sIp2, $sDate, $bUnlim, $sComment)
+    {
+        $sql
+            = "
+            INSERT INTO ?_adminips
+                (
+                    ip1,
+                    ip2,
+                    bandate,
+                    banline,
+                    banunlim,
+                    bancomment,
+                    banactive
+                )
+                VALUES (
+                    INET_ATON(?:ip1),
+                    INET_ATON(?:ip2),
+                    ?:bandate,
+                    ?:banline,
+                    ?:banunlim,
+                    ?:bancomment,
+                    ?:banactive
+                )
+                    ";
+        $nId = $this->oDb->sqlQuery(
+            $sql,
+            array(
+                ':ip1'        => $sIp1,
+                ':ip2'        => $sIp2,
+                ':bandate'    => \F::Now(),
+                ':banline'    => $sDate,
+                ':banunlim'   => $bUnlim ? 1 : 0,
+                ':bancomment' => $sComment,
+                ':banactive'  => 1,
+            )
+        );
+        return $nId ?: false;
+    }
+
+    /**
+     * Unban range of IPs
+     *
+     * @param array $aIds
+     *
+     * @return bool
+     */
+    public function unsetBanIp($aIds)
+    {
+        $sql = "
+            UPDATE ?_adminips
+            SET banactive=0, banunlim=0
+            WHERE id IN (?a)";
+        return false !== $this->oDb->query($sql, $aIds);
+    }
+
+    /**
+     * Returns list of invites
+     *
+     * @param int   $iCount
+     * @param int   $iCurrPage
+     * @param int   $iPerPage
+     * @param array $aFilter
+     *
+     * @return array
+     */
+    public function getInvites(&$iCount, $iCurrPage, $iPerPage, $aFilter = [])
+    {
+        $sql =
+            "SELECT
+                invite_id, invite_code, user_from_id, user_to_id,
+                invite_date_add, invite_date_used, invite_used,
+                u1.user_login AS from_login,
+                u2.user_login AS to_login
+            FROM ?_invite AS i
+                LEFT JOIN ?_user AS u1 ON i.user_from_id=u1.user_id
+                LEFT JOIN ?_user AS u2 ON i.user_to_id=u2.user_id
+            WHERE
+                1=1
+                {AND invite_used=?d}
+                {AND invite_used=?d}
+            ORDER BY invite_id DESC
+            LIMIT ?d, ?d";
+        $aRows = $this->oDb->selectPage($iCount, $sql,
+            isset($aFilter['used']) ? 1 : DBSIMPLE_SKIP,
+            isset($aFilter['unused']) ? 0 : DBSIMPLE_SKIP,
+            ($iCurrPage - 1) * $iPerPage,
+            $iPerPage
+        );
+        return $aRows ? $aRows : [];
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getInvitesCount()
+    {
+        $sql =
+            "SELECT
+                COUNT(invite_id) AS cnt,
+                SUM(invite_used) AS used,
+                SUM(CASE WHEN invite_used=0 THEN 1 ELSE 0 END) AS unused
+            FROM ?_invite
+            ";
+        $aResult = $this->oDb->selectRow($sql);
+        $aResult['all'] = $aResult['cnt'];
+
+        return $aResult;
+    }
+
+    /**
+     * Deletes unused invites
+     *
+     * @param array $aIds
+     *
+     * @return bool
+     */
+    public function deleteInvites($aIds)
+    {
+        // Удаляются только неиспользованные инвайты
+        $sql =
+            "DELETE FROM ?_invite
+            WHERE invite_id IN (?a) AND invite_used=0 AND invite_date_used IS NULL";
+
+        return $this->oDb->query($sql, $aIds) !== false;
+    }
+
+    /**
+     * Сохранение пользовательских настроек
+     *
+     * @param   array   $aData
+     *
+     * @return  bool
+     */
+    public function updateStorageConfig($aData)
+    {
+        $sql = "
+            SELECT storage_key FROM ?_storage WHERE storage_key IN (?a) LIMIT ?d
+        ";
+        $aExists = $this->oDb->selectCol($sql, F::Array_Column($aData, 'storage_key'), count($aData));
+        $aInsert = [];
+        $aUpdate = [];
+        foreach($aData as $aItem) {
+            if (in_array($aItem['storage_key'], $aExists)) {
+                $aUpdate[] = $aItem;
+            } else {
+                $aInsert[] = $aItem;
+            }
+        }
+        if ($aInsert) {
+            $sql = "INSERT INTO ?_storage(?#) VALUES(?a)";
+            // multi insert
+            $this->oDb->query($sql, array_keys($aInsert[0]), array_values($aInsert));
+        }
+        if ($aUpdate) {
+            $sql = "UPDATE ?_storage SET storage_val=?, storage_ord=?d WHERE storage_key=?";
+            foreach($aUpdate as $aItem) {
+                $this->oDb->query($sql, $aItem['storage_val'], $aItem['storage_ord'], $aItem['storage_key']);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param string $sPrefix
+     *
+     * @return mixed
+     */
+    public function getStorageConfig($sPrefix = '')
+    {
+        if ($sPrefix) {
+            $sPrefix = addslashes($sPrefix);
+            if (substr($sPrefix, -1) === '.') {
+                $sRootPath = substr($sPrefix, 0, strlen($sPrefix) - 1);
+            } else {
+                $sRootPath = $sPrefix;
+                $sPrefix .= '.';
+            }
+            $sql = "
+                SELECT storage_key AS ARRAY_KEY, storage_key, storage_val
+                FROM ?_storage
+                WHERE
+                    storage_key = '" . $sRootPath . "'
+                    OR storage_key LIKE '" . $sPrefix . "%'
+                ORDER BY storage_id";
+        } else {
+            $sql = "
+                SELECT storage_key AS ARRAY_KEY, storage_key, storage_val
+                FROM ?_storage
+                ORDER BY storage_id
+            ";
+        }
+        return $this->oDb->select($sql);
+    }
+
+    /**
+     * @param string $sPrefix
+     *
+     * @return bool
+     */
+    public function deleteStorageConfig($sPrefix = '')
+    {
+        if ($sPrefix) {
+            $sPrefix = addslashes($sPrefix);
+            if (substr($sPrefix, -1) === '.') {
+                $sRootPath = substr($sPrefix, 0, -1);
+            } else {
+                $sRootPath = $sPrefix;
+                $sPrefix .= '.';
+            }
+            $sql = "
+                DELETE
+                FROM ?_storage
+                WHERE
+                    storage_key = '" . $sRootPath . "'
+                    OR storage_key LIKE '" . $sPrefix . "%'";
+        } else {
+            $sql = "
+                DELETE
+                FROM ?_storage
+            ";
+        }
+        return $this->oDb->query($sql) !== false;
+    }
+
+    /**
+     * @return array
+     */
+    public function getUnlinkedBlogsForUsers()
+    {
+        $sql = "
+            SELECT j.blog_id, u.user_login, j.user_id
+            FROM ?_blog_user AS j
+                LEFT JOIN ?_blog AS b ON b.blog_id=j.blog_id
+                LEFT JOIN ?_user AS u ON u.user_id=j.user_id
+            WHERE b.blog_id IS NULL";
+        $aRows = $this->oDb->query($sql);
+        $aResult = [];
+        if ($aRows)
+            foreach ($aRows as $aRow) {
+                $aResult[$aRow['blog_id']][] = $aRow;
+            }
+        return $aResult;
+    }
+
+    /**
+     * @param array $aBlogIds
+     *
+     * @return mixed
+     */
+    public function delUnlinkedBlogsForUsers($aBlogIds)
+    {
+        $sql = "
+            DELETE FROM ?_blog_user
+            WHERE blog_id IN (?a)
+        ";
+        $aResult = $this->oDb->query($sql, $aBlogIds);
+        return $aResult;
+    }
+
+    /**
+     * @return array
+     */
+    public function getUnlinkedBlogsForCommentsOnline()
+    {
+        $sql = "
+            SELECT c.target_parent_id AS blog_id, c.comment_id, c.target_id
+            FROM ?_comment_online AS c
+                LEFT JOIN ?_topic AS t ON t.topic_id=c.target_id
+                LEFT JOIN ?_blog AS b ON b.blog_id=c.target_parent_id
+            WHERE c.target_type='topic' AND b.blog_id IS NULL";
+        $aRows = $this->oDb->query($sql);
+        $aResult = [];
+        if ($aRows)
+            foreach ($aRows as $aRow) {
+                $aResult[$aRow['blog_id']][] = $aRow;
+            }
+        return $aResult;
+    }
+
+    /**
+     * @param array $aBlogIds
+     *
+     * @return mixed
+     */
+    public function delUnlinkedBlogsForCommentsOnline($aBlogIds)
+    {
+        $sql = "
+            DELETE FROM ?_comment_online
+            WHERE target_type='topic' AND target_parent_id IN (?a)
+        ";
+        $aResult = $this->oDb->query($sql, $aBlogIds);
+        return $aResult;
+    }
+
+    /**
+     * @return array
+     */
+    public function getUnlinkedTopicsForCommentsOnline()
+    {
+        $sql = "
+            SELECT *
+            FROM ?_comment_online AS c
+            WHERE target_type='topic' AND target_id NOT IN (SELECT topic_id FROM ?_topic)
+            ";
+        $aRows = $this->oDb->query($sql);
+        $aResult = [];
+        if ($aRows)
+            foreach ($aRows as $aRow) {
+                $aResult[$aRow['target_id']][] = $aRow;
+            }
+        return $aResult;
+    }
+
+    /**
+     * @param array $aTopicsId
+     *
+     * @return mixed
+     */
+    public function delUnlinkedTopicsForCommentsOnline($aTopicsId)
+    {
+        $sql = "
+            DELETE FROM ?_comment_online
+            WHERE target_type='topic' AND target_id IN (?a)
+        ";
+        $aResult = $this->oDb->query($sql, $aTopicsId);
+        return $aResult;
+    }
+
+    /**
+     * @return array
+     */
+    public function getUnlinkedTopicsForComments()
+    {
+        $sql = "
+            SELECT *
+            FROM ?_comment AS c
+            LEFT JOIN ?_topic AS t ON (c.target_type =  'topic' AND c.target_id = t.topic_id)
+            WHERE c.target_type='topic' AND t.topic_id IS NULL
+            ";
+        $aRows = $this->oDb->query($sql);
+        $aResult = [];
+        if ($aRows)
+            foreach ($aRows as $aRow) {
+                $aResult[$aRow['target_id']][] = $aRow;
+            }
+        return $aResult;
+    }
+
+    /**
+     * @param array $aTopicsId
+     *
+     * @return mixed
+     */
+    public function delUnlinkedTopicsForComments($aTopicsId)
+    {
+        $sql = "
+            DELETE FROM ?_comment
+            WHERE target_type='topic' AND target_id IN (?a)
+        ";
+        $aResult = $this->oDb->query($sql, $aTopicsId);
+
+        return $aResult;
+    }
+
+    /**
+     * Устанавливает новую роль пользователя
+     *
+     * @param $oUser
+     * @param $iRole
+     *
+     * @return mixed
+     */
+    public function updateRole($oUser, $iRole)
+    {
+        $sql = "UPDATE ?_user SET user_role = ?d WHERE user_id = ?d";
+
+        return false !== $this->oDb->query($sql, $iRole, $oUser->getId());
+    }
+
+    /**
+     * @return int
+     */
+    public function getNumTopicsWithoutUrl()
+    {
+        $sql = "
+            SELECT Count(topic_id) as cnt
+            FROM ?_topic
+            WHERE (Trim(topic_url)='') OR (topic_url IS NULL)";
+
+        return (int)$this->oDb->selectCell($sql);
+    }
+
+    /**
+     * @param int $nLimit
+     *
+     * @return mixed
+     */
+    public function getTitleTopicsWithoutUrl($nLimit)
+    {
+        $sql = "
+            SELECT
+                topic_id AS ARRAY_KEY, topic_id, topic_title
+            FROM ?_topic
+            WHERE (Trim(topic_url)='') OR (topic_url IS NULL)
+            ORDER BY topic_date_add ASC
+            LIMIT ?d
+            ";
+        return $this->oDb->select($sql, $nLimit);
+    }
+
+    /**
+     * @param array $aData
+     *
+     * @return bool
+     */
+    public function saveTopicsUrl($aData)
+    {
+        $sql = '';
+        foreach ($aData as $nId => $aRec) {
+            $sql .= " WHEN $nId THEN '" . $aRec['topic_url'] . "'";
+        }
+        $sql = "
+            UPDATE ?_topic
+            SET topic_url=CASE topic_id " . $sql . " ELSE topic_url END
+            WHERE topic_id IN (?a)";
+
+        return false !== $this->oDb->query($sql, array_keys($aData));
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getDuplicateTopicsUrl()
+    {
+        $sql = "
+            SELECT Count( topic_id ) AS cnt, topic_url
+            FROM ?_topic
+            WHERE topic_url > ''
+            GROUP BY topic_url
+            HAVING cnt >2
+            ";
+
+        return $this->oDb->select($sql);
+    }
+
+    /**
+     * @param array $aUrls
+     *
+     * @return mixed
+     */
+    public function getTopicsDataByUrl($aUrls)
+    {
+        $sql = "
+            SELECT topic_id, topic_url
+            FROM ?_topic
+            WHERE topic_url IN (?a)
+            ORDER BY topic_date_add ASC
+            ";
+
+        return $this->oDb->select($sql, $aUrls);
+    }
+
+    /**
+     * @param $nUserId
+     *
+     * @return bool
+     */
+    public function delUser($nUserId)
+    {
+        // Удаление комментов
+        // находим комменты удаляемого юзера и для каждого:
+        // нижележащее дерево комментов подтягиваем к родителю удаляемого
+        $sql = "
+            SELECT comment_id AS ARRAY_KEY, comment_pid, target_type, target_id
+            FROM ?_comment
+            WHERE user_id=?d";
+
+        $aTargets = [];
+        while ($aComments = $this->oDb->select($sql, $nUserId)) {
+            if (is_array($aComments) && count($aComments)) {
+                foreach ($aComments AS $sId => $aCommentData) {
+                    $this->oDb->transaction();
+                    $sql = "UPDATE ?_comment SET comment_pid=?d WHERE comment_pid=?d";
+                    @$this->oDb->query($sql, $aCommentData['comment_pid'], $sId);
+                    $sql = "DELETE FROM ?_comment WHERE comment_id=?d";
+                    @$this->oDb->query($sql, $sId);
+                    $sTargetKey = $aCommentData['target_type'] . '_' . $aCommentData['target_id'];
+                    if (!isset($aTargets[$sTargetKey])) {
+                        $aTargets[$sTargetKey] = [
+                            'target_type' => $aCommentData['target_type'],
+                            'target_id'   => $aCommentData['target_id'],
+                        ];
+                    }
+                    $this->oDb->commit();
+                }
+            } else {
+                break;
+            }
+        }
+        // Обновление числа комментариев
+        foreach ($aTargets as $aTarget) {
+            \E::Module('Topic')->recalcCountOfComments($aTarget['target_id']);
+        }
+
+        // удаление остального "хозяйства"
+        //$this->oDb->transaction();
+        $sql = "DELETE FROM ?_topic WHERE user_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_blog WHERE user_owner_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_vote WHERE user_voter_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_blog_user WHERE user_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_adminban WHERE user_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_talk_user WHERE user_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        $sql = "DELETE FROM ?_user WHERE user_id=?d";
+        @$this->oDb->query($sql, $nUserId);
+
+        //$this->oDb->commit();
+
+        $bOk = $this->oDb->selectCell("SELECT user_id FROM ?_user WHERE user_id=?d", $nUserId);
+
+        return !$bOk;
+    }
+
+}
+
+// EOF
